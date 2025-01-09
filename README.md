@@ -20,6 +20,7 @@ This repository contains infrastructure and pipeline configurations to deploy an
 ## Steps to Deploy the Application
 
 ### 1. Provision EKS with Terraform
+![Terraform Diagram]([https://example.com/path/to/image.png](https://github.com/Walidbadry/LEMP-stack-wordpress-/blob/main/EKS-Terraform-GitHub-Actions-master/Presentation1.gif))
 
 1. Navigate to the `terraform` directory:
 
