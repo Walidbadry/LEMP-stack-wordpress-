@@ -1,124 +1,176 @@
-# LEMP Stack Deployment
+# DevOps Application Deployment
 
-This repository provides a guide for deploying a LEMP (Linux, Nginx, MySQL, PHP) stack application. Follow the steps below to set up and deploy your application.
+This repository contains infrastructure and pipeline configurations to deploy an application using the following technologies:
+
+1. **Terraform** for provisioning an Amazon Elastic Kubernetes Service (EKS) cluster.
+2. **Docker** for containerizing the application.
+3. **Jenkins** for CI/CD with integrated DevSecOps tools.
+4. **ArgoCD** for GitOps-based continuous delivery.
 
 ## Prerequisites
 
-Ensure the following are installed on your server:
+- AWS account with IAM permissions to create EKS resources.
+- Terraform installed on your local machine.
+- Docker installed on your local machine.
+- Jenkins server with required plugins (Pipeline, Docker, Kubernetes).
+- ArgoCD installed and configured.
 
-- **Linux**: Ubuntu 20.04+ is recommended.
-- **Nginx**: A web server to handle HTTP requests.
-- **MySQL**: A database to store application data.
-- **PHP**: To process dynamic content.
+---
 
-## Steps to Deploy the LEMP Stack
+## Steps to Deploy the Application
 
-### 1. Update and Install Required Packages
+### 1. Provision EKS with Terraform
 
-```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y nginx mysql-server php-fpm php-mysql unzip
-```
-
-### 2. Configure Nginx
-
-1. Create an Nginx configuration file for your application:
+1. Navigate to the `terraform` directory:
 
     ```bash
-    sudo nano /etc/nginx/sites-available/your-app
+    cd terraform
     ```
 
-2. Add the following configuration:
+2. Initialize Terraform:
 
-    ```nginx
-    server {
-        listen 80;
-        server_name your-domain.com;
+    ```bash
+    terraform init
+    ```
 
-        root /var/www/your-app;
-        index index.php index.html;
+3. Apply the configuration to create an EKS cluster:
 
-        location / {
-            try_files $uri $uri/ =404;
-        }
+    ```bash
+    terraform apply
+    ```
 
-        location ~ \.php$ {
-            include snippets/fastcgi-php.conf;
-            fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
-            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-            include fastcgi_params;
-        }
+4. Update your `kubeconfig` to use the new EKS cluster:
 
-        location ~ /\.ht {
-            deny all;
+    ```bash
+    aws eks --region <region> update-kubeconfig --name <cluster_name>
+    ```
+
+---
+
+### 2. Dockerize the Application
+
+1. Create a `Dockerfile` in the root of your application:
+
+    ```dockerfile
+    FROM node:16
+    WORKDIR /app
+    COPY package*.json ./
+    RUN npm install
+    COPY . .
+    CMD ["npm", "start"]
+    EXPOSE 3000
+    ```
+
+2. Build and push the Docker image:
+
+    ```bash
+    docker build -t <dockerhub_username>/my-app:latest .
+    docker push <dockerhub_username>/my-app:latest
+    ```
+
+---
+
+### 3. Set Up CI/CD with Jenkins
+
+1. Create a Jenkins pipeline job with the following script:
+
+    ```groovy
+    pipeline {
+        agent any
+        stages {
+            stage('Checkout') {
+                steps {
+                    git 'https://github.com/your-repo/your-app.git'
+                }
+            }
+            stage('Build Docker Image') {
+                steps {
+                    sh 'docker build -t <dockerhub_username>/my-app:latest .'
+                }
+            }
+            stage('Push Docker Image') {
+                steps {
+                    sh 'docker push <dockerhub_username>/my-app:latest'
+                }
+            }
+            stage('Deploy to Kubernetes') {
+                steps {
+                    sh 'kubectl apply -f k8s/deployment.yaml'
+                }
+            }
         }
     }
     ```
 
-3. Enable the configuration:
+2. Integrate security tools like **Trivy** for scanning the Docker image and **SonarQube** for code analysis.
+
+---
+
+### 4. Configure GitOps with ArgoCD
+
+1. Install ArgoCD on your EKS cluster:
 
     ```bash
-    sudo ln -s /etc/nginx/sites-available/your-app /etc/nginx/sites-enabled/
-    sudo nginx -t
-    sudo systemctl restart nginx
+    kubectl create namespace argocd
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
     ```
 
-### 3. Set Up MySQL Database
-
-1. Secure MySQL installation:
+2. Expose the ArgoCD server:
 
     ```bash
-    sudo mysql_secure_installation
+    kubectl port-forward svc/argocd-server -n argocd 8080:443
     ```
 
-2. Log in to MySQL and create a database:
+3. Login to the ArgoCD UI and configure your application:
 
     ```bash
-    sudo mysql -u root -p
-    CREATE DATABASE your_app_db;
-    CREATE USER 'your_user'@'localhost' IDENTIFIED BY 'your_password';
-    GRANT ALL PRIVILEGES ON your_app_db.* TO 'your_user'@'localhost';
-    FLUSH PRIVILEGES;
-    EXIT;
+    argocd app create my-app \
+      --repo https://github.com/your-repo/your-app.git \
+      --path k8s \
+      --dest-server https://kubernetes.default.svc \
+      --dest-namespace default
     ```
 
-### 4. Deploy Application Files
-
-1. Upload your application files to `/var/www/your-app`:
+4. Sync the application:
 
     ```bash
-    sudo mkdir -p /var/www/your-app
-    sudo cp -r /path/to/your/app/* /var/www/your-app
-    sudo chown -R www-data:www-data /var/www/your-app
-    sudo chmod -R 755 /var/www/your-app
+    argocd app sync my-app
     ```
 
-### 5. Test the Application
+---
 
-1. Open your browser and navigate to `http://your-domain.com`.
-2. Ensure that your application is running correctly.
+## Monitoring and Logs
 
-## Troubleshooting
+- Use **kubectl** to monitor your application:
 
-- Check the Nginx logs:
-  ```bash
-  sudo tail -f /var/log/nginx/error.log
-  ```
+    ```bash
+    kubectl get pods -n default
+    kubectl logs -f <pod-name>
+    ```
 
-- Check PHP logs:
-  ```bash
-  sudo tail -f /var/log/php7.4-fpm.log
-  ```
+- Monitor Jenkins pipelines for build and deployment statuses.
 
-- Ensure MySQL service is running:
-  ```bash
-  sudo systemctl status mysql
-  ```
+- Access ArgoCD UI to track GitOps deployments.
 
-## Notes
+---
 
-- Replace `your-domain.com`, `your-app`, `your_user`, and `your_password` with your specific details.
-- Adjust the PHP-FPM socket path if using a different version of PHP.
+## Directory Structure
+
+```
+.
+├── terraform/
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+├── Dockerfile
+├── k8s/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── Jenkinsfile
+└── README.md
+```
+
+---
 
 ## License
 
