@@ -20,7 +20,7 @@ This repository contains infrastructure and pipeline configurations to deploy an
 ## Steps to Deploy the Application
 
 ### 1. Provision EKS with Terraform
-<img src="EKS-Terraform-GitHub-Actions-master/Presentation1.gif" alt="Deployment Architecture" width="600">
+<img src="EKS-Terraform-GitHub-Actions-master/Presentation1.gif" width="600">
 
 1. Navigate to the `terraform` directory:
 
