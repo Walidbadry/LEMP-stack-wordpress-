@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  wordpress:
+    build:
+      context: ./wordpress   
+      dockerfile: Dockerfile
+    container_name: wordpress_app
+    ports:
+      - "8080:80" # Map port 80 in the container to port 8080 on the host
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wp_user
+      WORDPRESS_DB_PASSWORD: wp_password
+      WORDPRESS_DB_NAME: wp_database
+    volumes:
+      - ./wordpress:/var/www/html
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    container_name: wordpress_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: wp_database
+      MYSQL_USER: wp_user
+      MYSQL_PASSWORD: wp_password
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:

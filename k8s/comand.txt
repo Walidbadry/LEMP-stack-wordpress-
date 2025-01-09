@@ -1,0 +1,7 @@
+kubectl apply -f namespace.yaml
+kubectl apply -f mysql-pvc.yaml
+kubectl apply -f mysql-deployment.yaml
+kubectl apply -f wordpress-pvc.yaml
+kubectl apply -f wordpress-deployment.yaml
+kubectl apply -f ingress.yaml
+kubectl get all -n wordpress
